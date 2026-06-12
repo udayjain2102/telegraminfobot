@@ -9,6 +9,7 @@ import pandas as pd
 from .config import Config, load_config
 from .holidays import is_trading_day, previous_trading_day
 from .bhavcopy import fetch_bhavcopy, BhavcopyUnavailable
+from .fallback import fetch_eod_yfinance
 from .universe import load_universe
 from .history import append_day, load_history, DEFAULT_HISTORY_PATH
 from .screen import build_report
@@ -22,18 +23,25 @@ def run(run_date: date, cfg: Config,
         send_fn: Callable[[str], None],
         universe_df: pd.DataFrame,
         history_path: Path,
-        dry_run: bool) -> str:
+        dry_run: bool,
+        fallback_fn: Callable[[date, list[str]], pd.DataFrame] | None = None) -> str:
     if not is_trading_day(run_date):
         return "holiday"
 
+    universe_symbols = set(universe_df["symbol"])
     data_date = previous_trading_day(run_date)  # morning brief on the prior session
     try:
         day_df = fetch_bhavcopy_fn(data_date)
     except BhavcopyUnavailable as e:
-        send_fn(render_unavailable(data_date, str(e)))
-        return "unavailable"
+        if fallback_fn is None:
+            send_fn(render_unavailable(data_date, str(e)))
+            return "unavailable"
+        try:
+            day_df = fallback_fn(data_date, sorted(universe_symbols))
+        except BhavcopyUnavailable as e2:
+            send_fn(render_unavailable(data_date, f"{e}; fallback failed: {e2}"))
+            return "unavailable"
 
-    universe_symbols = set(universe_df["symbol"])
     day_df = day_df[day_df["symbol"].isin(universe_symbols)].copy()
     history = append_day(day_df, history_path, cfg.history_lookback_days)
 
@@ -72,6 +80,7 @@ def main() -> None:
         universe_df=universe_df,
         history_path=DEFAULT_HISTORY_PATH,
         dry_run=args.dry_run,
+        fallback_fn=fetch_eod_yfinance,
     )
     print(f"[marketbot] status={status} date={run_date}")
 

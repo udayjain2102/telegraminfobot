@@ -47,5 +47,7 @@ pytest
   POC/value-area levels are close to — but not pixel-identical with — the
   TradingView intraday profile.
 - Hand-drawn diagonal trendlines are **not** tracked (only horizontal AVP levels).
-- If NSE blocks the Actions runner IP for bhavcopy, switch the daily fetch to the
-  yfinance fallback (same OHLCV shape as `backfill_history.py`).
+- If NSE blocks the Actions runner IP (or the bhavcopy is delayed), the daily run
+  **automatically falls back** to fetching that day's OHLCV for the universe via
+  yfinance (`marketbot/fallback.py`). Only if both bhavcopy and the fallback fail
+  does it send a "data not ready" note instead of a brief.

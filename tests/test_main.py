@@ -46,6 +46,58 @@ def test_run_unavailable_sends_note(tmp_path, monkeypatch):
     assert "not ready" in sent["text"].lower()
 
 
+def test_run_uses_fallback_when_bhavcopy_unavailable(tmp_path, monkeypatch):
+    sent = {}
+    monkeypatch.setattr(m, "is_trading_day", lambda d, hf=None: True)
+    monkeypatch.setattr(m, "build_overview",
+                        lambda rows, **k: m.MarketOverview(nifty=(1, 0.1), sensex=(2, 0.2)))
+    universe = pd.DataFrame({"symbol": ["A"], "name": ["A"], "market_cap": [2e11], "sector": ["IT"]})
+    hist_path = tmp_path / "h.parquet"
+
+    from marketbot.history import append_day
+    for i in range(60):
+        append_day(_bhav(date(2026, 3, 1) + pd.Timedelta(days=i).to_pytimedelta(), ["A"]),
+                   hist_path, lookback_days=300)
+
+    def boom(d):
+        from marketbot.bhavcopy import BhavcopyUnavailable
+        raise BhavcopyUnavailable("nse blocked")
+
+    out = m.run(
+        run_date=date(2026, 6, 12), cfg=Config(),
+        fetch_bhavcopy_fn=boom,
+        send_fn=lambda text: sent.setdefault("text", text),
+        universe_df=universe, history_path=hist_path, dry_run=False,
+        fallback_fn=lambda d, syms: _bhav(d, list(syms)),
+    )
+    assert out == "sent"
+    assert "Market Brief" in sent["text"]
+
+
+def test_run_unavailable_when_both_bhavcopy_and_fallback_fail(tmp_path, monkeypatch):
+    sent = {}
+    monkeypatch.setattr(m, "is_trading_day", lambda d, hf=None: True)
+
+    def boom(d):
+        from marketbot.bhavcopy import BhavcopyUnavailable
+        raise BhavcopyUnavailable("nse blocked")
+
+    def boom_fallback(d, syms):
+        from marketbot.bhavcopy import BhavcopyUnavailable
+        raise BhavcopyUnavailable("yf empty")
+
+    out = m.run(
+        run_date=date(2026, 6, 12), cfg=Config(),
+        fetch_bhavcopy_fn=boom,
+        send_fn=lambda text: sent.setdefault("text", text),
+        universe_df=pd.DataFrame({"symbol": ["A"], "name": ["A"], "market_cap": [2e11], "sector": ["IT"]}),
+        history_path=tmp_path / "h.parquet", dry_run=False,
+        fallback_fn=boom_fallback,
+    )
+    assert out == "unavailable"
+    assert "fallback failed" in sent["text"].lower()
+
+
 def test_run_happy_path_sends_brief(tmp_path, monkeypatch):
     sent = {}
     monkeypatch.setattr(m, "is_trading_day", lambda d, hf=None: True)
