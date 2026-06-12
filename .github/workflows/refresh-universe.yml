@@ -1,0 +1,27 @@
+name: refresh-universe
+on:
+  schedule:
+    - cron: "30 1 * * 0"    # Sundays 01:30 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python scripts/refresh_universe.py
+      - name: Commit universe
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/universe.csv
+          git commit -m "data: refresh universe [skip ci]" || echo "no changes"
+          git push || echo "nothing to push"
