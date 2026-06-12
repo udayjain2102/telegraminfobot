@@ -11,12 +11,15 @@ optionally the user). The brief covers a market overview, the most active /
 unusual-activity stocks within the family's screened universe, the most-traded
 names by turnover, and indicator alerts.
 
-The investing criteria were extracted from the user's TradingView screener
-"USE ONLY THIS" on 2026-06-12 (read via the TradingView desktop app). They are
-deliberately simple — a liquidity/size screen, not a multi-factor fundamental
-screen.
+The setup was extracted from the user's TradingView on 2026-06-12 (read via the
+TradingView desktop app). It has **two parts**: (1) a liquidity/size **screener**
+that defines the universe, and (2) a **chart indicator** (Chandelier Exit) plus
+volume-profile support/resistance that generates the actual Buy/Sell and
+breakout signals.
 
 ## Captured investing criteria (from TradingView)
+
+### Part 1 — Screener "USE ONLY THIS" (defines the universe)
 
 | Criterion | Value |
 |---|---|
@@ -30,6 +33,17 @@ screen.
 In plain terms: **liquid Indian large/mid-caps (≥ ₹1,000 cr market cap), with the
 daily attention list driven by turnover and relative-volume spikes.**
 
+### Part 2 — Chart signals (the breakout / Buy-Sell layer)
+
+| Signal | Definition |
+|---|---|
+| Trend / entry-exit | **Chandelier Exit** (ATR length **22**, multiplier **3**) — chart label `CE 22 3`. Trailing-stop line flips: prints **Buy** on flip up, **Sell** on flip down. |
+| Key horizontal levels | Derived **per stock from a volume profile** (high-volume nodes: point-of-control and value-area edges) — the automated stand-in for the hand-drawn S/R lines on the user's chart. |
+| "About to break out" | Price approaching a key volume-profile level (within a configurable band). |
+
+These run **on top of** the screened universe: the screener says *which* stocks to
+watch; Chandelier Exit + volume-profile levels say *what they're doing*.
+
 ## Decisions made
 
 | Decision | Choice |
@@ -37,7 +51,9 @@ daily attention list driven by turnover and relative-volume spikes.**
 | Platform | Telegram (official Bot API, free) |
 | Market | India — NSE |
 | Delivery time | ~8:30 AM IST, weekdays, skipping NSE holidays (cron `0 3 * * 1-5` UTC) |
-| Content | Market overview · unusual activity (rel-vol) · most-traded (turnover) · indicator alerts |
+| Content | Market overview · unusual activity (rel-vol) · most-traded (turnover) · Chandelier Exit Buy/Sell flips · approaching key volume-profile level · indicator alerts |
+| Chart indicator | Chandelier Exit (ATR 22, mult 3), computed across the universe |
+| Key levels | Auto-derived per stock from a volume profile (high-volume nodes) |
 | Movers basis | Top movers **within the screened universe** (not a separate watchlist) |
 | Hosting | GitHub Actions scheduled workflow (free, serverless) |
 | Architecture | Stateless cron script, push-only (no interactive commands in v1) |
@@ -77,9 +93,19 @@ next run has a rolling window with no external database.
 - **`indicators.py`** — pandas computations: RSI(14), SMA/EMA (20/50/200),
   MA crossovers, 52-week high/low proximity, relative volume (today ÷ 20-day
   average), turnover (close × volume).
+- **`chandelier.py`** — Chandelier Exit (ATR length 22, multiplier 3): computes
+  the long/short trailing-stop line and detects flips. Output per stock:
+  current direction (long/short), the line value, and whether a **Buy** or
+  **Sell** flip occurred on the latest bar. Reference Pine logic is public; this
+  is a faithful, unit-tested port.
+- **`volume_profile.py`** — builds a per-stock volume profile over a configurable
+  lookback (e.g., 1 year of daily data): bins price, sums volume, returns
+  point-of-control and value-area-high/low as the stock's key horizontal levels.
+  `near_level(price, levels, band_pct)` flags "about to break out".
 - **`screen.py`** — applies the criteria (market cap from universe, liquidity
-  from bhavcopy), ranks by turnover, flags rel-vol spikes and indicator
-  signals, selects the top N for each section.
+  from bhavcopy), ranks by turnover, flags rel-vol spikes, **Chandelier Exit
+  Buy/Sell flips**, and **proximity to volume-profile levels**, then selects the
+  top N for each section.
 - **`market_overview.py`** — Nifty 50 (`^NSEI`) and Sensex (`^BSESN`) close and
   % change, top sector movers.
 - **`brief.py`** — builds the Telegram message (Markdown/HTML) in sections;
@@ -106,6 +132,14 @@ Top sectors: IT ▲1.9% · Auto ▲1.1%
 
 💰 Most-traded (turnover)
  HDFCBANK · RELIANCE · ICICIBANK …
+
+🟢 Chandelier Exit — flipped today
+ BUY:  APOLLO · TEJASNET
+ SELL: ZEEL
+
+🎯 Approaching key level (volume profile)
+ LT      ₹3,940  → resistance ₹3,975 (−0.9%)
+ ICICIBANK ₹1,321 → support ₹1,305 (+1.2%)
 
 📈 Signal alerts
  RSI<30: XYZ · ABC
@@ -143,6 +177,8 @@ Top sectors: IT ▲1.9% · Auto ▲1.1%
 
 - Interactive commands (`/price`, `/matches`) — would require an always-on host;
   current module boundaries allow this lift later.
-- Additional fundamental/technical filters — the criteria are intentionally just
-  the liquidity/size screen today; thresholds live in `config.yaml` if expanded.
+- Additional fundamental filters (P/E, ROE, growth, etc.) — currently empty in
+  the screener; thresholds live in `config.yaml` if expanded later.
+- Other chart indicators beyond Chandelier Exit (22, 3) and volume-profile
+  levels — can be added as new modules following the same pattern.
 - WhatsApp delivery.
