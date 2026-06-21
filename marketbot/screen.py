@@ -20,6 +20,8 @@ class StockRow:
     chandelier_dir: int
     buy_flip: bool
     sell_flip: bool
+    new_high_20d: bool = False
+    above_poc: bool = False
     level_hits: list[LevelHit] = field(default_factory=list)
     rsi: float = float("nan")
 
@@ -56,10 +58,16 @@ def _evaluate_symbol(df: pd.DataFrame, name: str, sector: str, cfg: Config) -> S
     hits = near_levels(close, {"POC": prof.poc, "VAH": prof.vah, "VAL": prof.val},
                        cfg.near_level_band_pct)
 
+    # 1-month new high: close >= highest close of last `new_high_lookback_days` sessions
+    new_high_window = float(df["close"].rolling(cfg.new_high_lookback_days).max().iloc[-1])
+    new_high = close >= new_high_window if new_high_window == new_high_window else False
+    above_poc = close > prof.poc if prof.poc == prof.poc else False
+
     return StockRow(
         symbol=df["symbol"].iloc[-1], name=name, close=close, chg_pct=chg,
         rel_vol=rel_vol if rel_vol == rel_vol else 0.0, turnover=turn, sector=sector,
         chandelier_dir=ce.direction, buy_flip=ce.buy_flip, sell_flip=ce.sell_flip,
+        new_high_20d=bool(new_high), above_poc=bool(above_poc),
         level_hits=hits, rsi=rsi_val,
     )
 
@@ -95,7 +103,18 @@ def build_report(history: pd.DataFrame, universe: pd.DataFrame, cfg: Config) -> 
         [r for r in rows if r.level_hits],
         key=lambda r: abs(r.level_hits[0].distance_pct))[: cfg.top_n_levels]
 
-    report.high_conviction = [r for r in rows if r.buy_flip and r.level_hits]
+    # Momentum BUY (spec) — ALL conditions must hold:
+    #  [1] in Top-15 turnover set  [2] 1-month new high  [3] Chandelier/Supertrend buy flip
+    #  [4] close above volume-profile POC  [5] signal-day volume >= buy_volume_mult x avg
+    turnover_set = {r.symbol for r in report.turnover_leaders}
+    report.high_conviction = [
+        r for r in rows
+        if r.symbol in turnover_set
+        and r.new_high_20d
+        and r.buy_flip
+        and r.above_poc
+        and r.rel_vol >= cfg.buy_volume_mult
+    ]
 
     report.rsi_oversold = [r for r in rows if r.rsi <= cfg.rsi_oversold]
     report.rsi_overbought = [r for r in rows if r.rsi >= cfg.rsi_overbought]

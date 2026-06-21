@@ -28,6 +28,26 @@ def test_build_filters_by_market_cap(tmp_path):
     assert "market_cap" in loaded.columns and "sector" in loaded.columns
 
 
+def test_build_applies_max_market_cap_ceiling(tmp_path):
+    equity_csv = Path("tests/fixtures/equity_l_sample.csv").read_text()
+    caps = {  # ₹ — RELIANCE/TCS are mega-caps, above the ₹200B ceiling
+        "RELIANCE": 17_000_000_000_000,
+        "TCS": 14_000_000_000_000,
+        "TINYCO": 50_000_000_000,      # ₹50B — within ₹10B–₹200B band
+    }
+    out = tmp_path / "universe.csv"
+    df = build_universe(
+        equity_csv,
+        min_market_cap_inr=10_000_000_000,
+        max_market_cap_inr=200_000_000_000,
+        market_cap_fn=lambda s: caps.get(s),
+        sector_fn=lambda s: "Misc",
+        out_path=out,
+    )
+    syms = set(df["symbol"])
+    assert syms == {"TINYCO"}        # mega-caps dropped by ceiling
+
+
 def test_build_skips_symbols_with_unknown_cap(tmp_path):
     equity_csv = Path("tests/fixtures/equity_l_sample.csv").read_text()
     out = tmp_path / "u.csv"

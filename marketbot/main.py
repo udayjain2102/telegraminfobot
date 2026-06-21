@@ -14,8 +14,10 @@ from .universe import load_universe
 from .history import append_day, load_history, DEFAULT_HISTORY_PATH
 from .screen import build_report
 from .market_overview import build_overview, MarketOverview
-from .brief import render_brief, render_unavailable
+from .brief import render_brief, render_unavailable, render_tv_scan
 from .telegram_bot import send_message
+from .tradingview import scan_momentum
+from .dedup import load_alerted, record_alerted, DEFAULT_ALERTS_PATH
 
 
 def run(run_date: date, cfg: Config,
@@ -56,6 +58,40 @@ def run(run_date: date, cfg: Config,
     return "sent"
 
 
+def run_tv_scan(run_date: date, cfg: Config,
+                send_fn: Callable[[str], None],
+                dry_run: bool,
+                scan_fn: Callable[[Config], object] = scan_momentum,
+                dedup_path: Path | str = DEFAULT_ALERTS_PATH) -> str:
+    """Live intraday TradingView momentum scan (no history I/O).
+
+    Dedups within the trading day: a symbol already alerted as BUY in an earlier
+    run is suppressed from later runs. On a dry run nothing is persisted.
+    """
+    if not is_trading_day(run_date):
+        return "holiday"
+    try:
+        scan = scan_fn(cfg)
+    except Exception as e:  # noqa: BLE001 — TV is unofficial; degrade gracefully
+        send_fn(render_unavailable(run_date, f"TradingView scan failed: {e}"))
+        return "unavailable"
+
+    # Suppress BUYs already alerted earlier today.
+    alerted = load_alerted(dedup_path, run_date)
+    fresh = [b for b in scan.buys if b.symbol not in alerted]
+    scan.buys = fresh
+    scan.as_of = run_date
+
+    text = render_tv_scan(scan, cfg=cfg)
+    if dry_run:
+        print(text)
+    else:
+        send_fn(text)
+        if fresh:
+            record_alerted(dedup_path, run_date, [b.symbol for b in fresh])
+    return "sent"
+
+
 def _default_send(cfg: Config) -> Callable[[str], None]:
     token = os.environ["TELEGRAM_BOT_TOKEN"]
     chat_ids = [c.strip() for c in os.environ["TELEGRAM_CHAT_IDS"].split(",") if c.strip()]
@@ -66,23 +102,27 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Daily NSE market brief Telegram bot")
     parser.add_argument("--dry-run", action="store_true", help="print instead of sending")
     parser.add_argument("--date", help="run date YYYY-MM-DD (default: today)")
+    parser.add_argument("--source", choices=["bhavcopy", "tradingview"], default="bhavcopy",
+                        help="bhavcopy = EOD brief (default); tradingview = live intraday scan")
     args = parser.parse_args()
 
     cfg = load_config()
     run_date = date.fromisoformat(args.date) if args.date else date.today()
-    universe_df = load_universe()
     send_fn = (lambda text: print(text)) if args.dry_run else _default_send(cfg)
 
-    status = run(
-        run_date=run_date, cfg=cfg,
-        fetch_bhavcopy_fn=fetch_bhavcopy,
-        send_fn=send_fn,
-        universe_df=universe_df,
-        history_path=DEFAULT_HISTORY_PATH,
-        dry_run=args.dry_run,
-        fallback_fn=fetch_eod_yfinance,
-    )
-    print(f"[marketbot] status={status} date={run_date}")
+    if args.source == "tradingview":
+        status = run_tv_scan(run_date=run_date, cfg=cfg, send_fn=send_fn, dry_run=args.dry_run)
+    else:
+        status = run(
+            run_date=run_date, cfg=cfg,
+            fetch_bhavcopy_fn=fetch_bhavcopy,
+            send_fn=send_fn,
+            universe_df=load_universe(),
+            history_path=DEFAULT_HISTORY_PATH,
+            dry_run=args.dry_run,
+            fallback_fn=fetch_eod_yfinance,
+        )
+    print(f"[marketbot] status={status} date={run_date} source={args.source}")
 
 
 if __name__ == "__main__":

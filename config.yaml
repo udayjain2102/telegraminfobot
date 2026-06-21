@@ -1,14 +1,28 @@
 # Screener / universe
-min_market_cap_inr: 10_000_000_000   # ₹1,000 crore
+min_market_cap_inr: 10_000_000_000   # ₹1,000 crore  (₹10B floor)
+max_market_cap_inr: 200_000_000_000  # ₹20,000 crore (₹200B ceiling) — small/mid-cap only
 
 # Section sizes
 top_n_unusual: 8
-top_n_turnover: 12
+top_n_turnover: 15                   # spec: Top-15 turnover universe for buy signals
 top_n_levels: 10
 
 # Relative volume
 relvol_lookback_days: 20
 relvol_spike_threshold: 2.0          # today vol >= 2x average → "spike"
+
+# Momentum BUY signal (spec)
+new_high_lookback_days: 20           # price >= highest close of last 20 sessions (1-month new high)
+buy_volume_mult: 1.5                 # signal-day volume >= 1.5x 20-day average
+min_listing_age_days: 365            # exclude stocks that started trading < 12 months ago
+# Candle basis for the intraday scan's new-high test: Heikin Ashi (HA close)
+
+# Risk/reward for BUY signals (strategy doc, Step 6)
+atr_stop_mult: 1.0                   # stop = entry - 1x ATR(14)
+max_risk_pct: 0.07                   # never risk more than 7% per trade
+rr_multiples: [1.0, 2.0, 3.0]        # reward targets at 1R / 2R / 3R
+position_risk_pct: 0.02              # risk 2% of capital per trade
+hold_horizon: "3-8 weeks (swing)"    # trend-following hold
 
 # Indicators
 rsi_period: 14

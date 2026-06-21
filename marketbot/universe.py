@@ -42,7 +42,8 @@ def yf_sector(symbol: str) -> str | None:
 def build_universe(equity_csv_text: str, min_market_cap_inr: int,
                    market_cap_fn: Callable[[str], float | None],
                    sector_fn: Callable[[str], str | None],
-                   out_path: Path | str = DEFAULT_UNIVERSE_PATH) -> pd.DataFrame:
+                   out_path: Path | str = DEFAULT_UNIVERSE_PATH,
+                   max_market_cap_inr: int | None = None) -> pd.DataFrame:
     raw = pd.read_csv(io.StringIO(equity_csv_text))
     raw.columns = [c.strip() for c in raw.columns]
     raw = raw[raw["SERIES"].astype(str).str.strip() == "EQ"]
@@ -51,6 +52,8 @@ def build_universe(equity_csv_text: str, min_market_cap_inr: int,
         sym = str(r["SYMBOL"]).strip().upper()
         cap = market_cap_fn(sym)
         if cap is None or cap < min_market_cap_inr:
+            continue
+        if max_market_cap_inr is not None and cap > max_market_cap_inr:
             continue
         rows.append({
             "symbol": sym,

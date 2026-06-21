@@ -52,6 +52,43 @@ def test_buy_flip_appears_in_chandelier_buys():
     assert "FLIP" not in [r.symbol for r in report.chandelier_sells]
 
 
+def _momentum_history(symbol, spike_volume):
+    # Long downtrend (Chandelier short) then a sharp up-bar on the last session:
+    # flips Chandelier to BUY, makes a fresh 20-day high, and sits above the POC.
+    closes = list(range(300, 40, -1)) + [600]          # 261 bars, last bar jumps up
+    vols = [100] * (len(closes) - 1) + [spike_volume]   # last-day volume control
+    return _history(symbol, closes, vols)
+
+
+def test_momentum_buy_fires_when_all_conditions_met():
+    cfg = Config(buy_volume_mult=1.5)
+    hist = _momentum_history("MOM", spike_volume=1000)   # 10x avg → passes 1.5x
+    report = build_report(hist, _universe(["MOM"]), cfg)
+    row = next(r for r in report.high_conviction if r.symbol == "MOM")
+    assert row.buy_flip and row.new_high_20d and row.above_poc
+    assert row.rel_vol >= cfg.buy_volume_mult
+
+
+def test_momentum_buy_suppressed_without_volume_confirmation():
+    cfg = Config(buy_volume_mult=1.5)
+    hist = _momentum_history("MOM", spike_volume=100)    # flat volume → fails 1.5x
+    report = build_report(hist, _universe(["MOM"]), cfg)
+    assert "MOM" not in [r.symbol for r in report.high_conviction]
+
+
+def test_momentum_buy_requires_top_turnover_membership():
+    # Stock fires the technical signal but is outside the Top-N turnover set,
+    # so it must be excluded from Momentum BUY.
+    cfg = Config(buy_volume_mult=1.5, top_n_turnover=1)
+    mom = _momentum_history("MOM", spike_volume=1000)
+    # A second name with far higher turnover occupies the single Top-1 slot.
+    big = _history("BIG", [1000] * len(mom), [10000] * len(mom))
+    hist = pd.concat([mom, big], ignore_index=True)
+    report = build_report(hist, _universe(["MOM", "BIG"]), cfg)
+    assert report.turnover_leaders[0].symbol == "BIG"
+    assert "MOM" not in [r.symbol for r in report.high_conviction]
+
+
 def test_report_sections_exist():
     cfg = Config()
     hist = _history("A", [100] * 300, [500] * 300)

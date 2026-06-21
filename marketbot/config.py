@@ -9,11 +9,22 @@ DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.yaml"
 @dataclass
 class Config:
     min_market_cap_inr: int = 10_000_000_000
+    max_market_cap_inr: int | None = None
     top_n_unusual: int = 8
-    top_n_turnover: int = 12
+    top_n_turnover: int = 15
     top_n_levels: int = 10
     relvol_lookback_days: int = 20
     relvol_spike_threshold: float = 2.0
+    new_high_lookback_days: int = 20
+    buy_volume_mult: float = 1.5
+    min_listing_age_days: int = 365            # exclude stocks listed within the last 12 months
+
+    # Risk/reward for BUY signals (strategy doc, Step 6)
+    atr_stop_mult: float = 1.0                 # stop = entry - atr_stop_mult x ATR(14)
+    max_risk_pct: float = 0.07                 # never risk more than 7% per trade
+    rr_multiples: list[float] = field(default_factory=lambda: [1.0, 2.0, 3.0])
+    position_risk_pct: float = 0.02            # risk 2% of capital per trade
+    hold_horizon: str = "3-8 weeks (swing)"
     rsi_period: int = 14
     rsi_oversold: int = 30
     rsi_overbought: int = 70

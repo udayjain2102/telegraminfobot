@@ -13,8 +13,10 @@ def main() -> None:
         min_market_cap_inr=cfg.min_market_cap_inr,
         market_cap_fn=yf_market_cap,
         sector_fn=yf_sector,
+        max_market_cap_inr=cfg.max_market_cap_inr,
     )
-    print(f"[refresh-universe] kept {len(df)} symbols >= INR {cfg.min_market_cap_inr:,}")
+    ceil = f" .. INR {cfg.max_market_cap_inr:,}" if cfg.max_market_cap_inr else ""
+    print(f"[refresh-universe] kept {len(df)} symbols >= INR {cfg.min_market_cap_inr:,}{ceil}")
 
 
 if __name__ == "__main__":
