@@ -11,13 +11,16 @@ from .holidays import is_trading_day, previous_trading_day
 from .bhavcopy import fetch_bhavcopy, BhavcopyUnavailable
 from .fallback import fetch_eod_yfinance
 from .universe import load_universe
-from .history import append_day, load_history, DEFAULT_HISTORY_PATH
-from .screen import build_report
+from .history import append_day, load_history, history_for, DEFAULT_HISTORY_PATH
+from .indicators import atr as ind_atr
+from .screen import build_report, evaluate_eod_exits
 from .market_overview import build_overview, MarketOverview
 from .brief import render_brief, render_unavailable, render_tv_scan
 from .telegram_bot import send_message
-from .tradingview import scan_momentum
-from .dedup import load_alerted, record_alerted, DEFAULT_ALERTS_PATH
+from .tradingview import scan_momentum, evaluate_tv_exits, compute_risk_reward
+from .positions import (
+    load_positions, save_positions, open_position, close_position, DEFAULT_POSITIONS_PATH,
+)
 
 
 def run(run_date: date, cfg: Config,
@@ -26,7 +29,8 @@ def run(run_date: date, cfg: Config,
         universe_df: pd.DataFrame,
         history_path: Path,
         dry_run: bool,
-        fallback_fn: Callable[[date, list[str]], pd.DataFrame] | None = None) -> str:
+        fallback_fn: Callable[[date, list[str]], pd.DataFrame] | None = None,
+        positions_path: Path | str = DEFAULT_POSITIONS_PATH) -> str:
     if not is_trading_day(run_date):
         return "holiday"
 
@@ -49,12 +53,26 @@ def run(run_date: date, cfg: Config,
 
     report = build_report(history, universe_df, cfg)
     overview = build_overview([*report.turnover_leaders, *report.unusual_volume])
-    text = render_brief(report, overview)
 
+    # Position lifecycle: exits on held names, then open fresh Momentum BUYs.
+    positions = load_positions(positions_path)
+    sells = evaluate_eod_exits(positions, history, report, cfg, today=data_date)
+    for s in sells:
+        close_position(positions, s.symbol)
+    fresh_buys = [r for r in report.high_conviction if r.symbol not in positions]
+    report.high_conviction = fresh_buys
+    for r in fresh_buys:
+        df = history_for(history, r.symbol)
+        atr = float(ind_atr(df, 14).iloc[-1]) if len(df) >= 15 else 0.0
+        rr = compute_risk_reward(r.close, atr, cfg)
+        open_position(positions, r.symbol, r.close, rr.stop, data_date, "eod")
+
+    text = render_brief(report, overview, sells=sells)
     if dry_run:
         print(text)
     else:
         send_fn(text)
+        save_positions(positions, positions_path)
     return "sent"
 
 
@@ -62,11 +80,12 @@ def run_tv_scan(run_date: date, cfg: Config,
                 send_fn: Callable[[str], None],
                 dry_run: bool,
                 scan_fn: Callable[[Config], object] = scan_momentum,
-                dedup_path: Path | str = DEFAULT_ALERTS_PATH) -> str:
-    """Live intraday TradingView momentum scan (no history I/O).
+                positions_path: Path | str = DEFAULT_POSITIONS_PATH,
+                history_fn=None) -> str:
+    """Live intraday TradingView momentum scan with the BUY→SELL lifecycle.
 
-    Dedups within the trading day: a symbol already alerted as BUY in an earlier
-    run is suppressed from later runs. On a dry run nothing is persisted.
+    BUYs are suppressed for names already held (open positions); SELLs fire when a
+    held name hits an exit trigger. On a dry run nothing is persisted.
     """
     if not is_trading_day(run_date):
         return "holiday"
@@ -76,19 +95,24 @@ def run_tv_scan(run_date: date, cfg: Config,
         send_fn(render_unavailable(run_date, f"TradingView scan failed: {e}"))
         return "unavailable"
 
-    # Suppress BUYs already alerted earlier today.
-    alerted = load_alerted(dedup_path, run_date)
-    fresh = [b for b in scan.buys if b.symbol not in alerted]
+    positions = load_positions(positions_path)
+    sells = evaluate_tv_exits(positions, scan, cfg, history_fn=history_fn, today=run_date)
+    for s in sells:
+        close_position(positions, s.symbol)
+
+    fresh = [b for b in scan.buys if b.symbol not in positions]
     scan.buys = fresh
     scan.as_of = run_date
 
-    text = render_tv_scan(scan, cfg=cfg)
+    text = render_tv_scan(scan, cfg=cfg, sells=sells)
     if dry_run:
         print(text)
     else:
         send_fn(text)
-        if fresh:
-            record_alerted(dedup_path, run_date, [b.symbol for b in fresh])
+        for b in fresh:
+            rr = compute_risk_reward(b.close, b.atr, cfg)
+            open_position(positions, b.symbol, b.close, rr.stop, run_date, "tv")
+        save_positions(positions, positions_path)
     return "sent"
 
 

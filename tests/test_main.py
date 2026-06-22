@@ -69,6 +69,7 @@ def test_run_uses_fallback_when_bhavcopy_unavailable(tmp_path, monkeypatch):
         send_fn=lambda text: sent.setdefault("text", text),
         universe_df=universe, history_path=hist_path, dry_run=False,
         fallback_fn=lambda d, syms: _bhav(d, list(syms)),
+        positions_path=tmp_path / "positions.json",
     )
     assert out == "sent"
     assert "Market Brief" in sent["text"]
@@ -117,6 +118,7 @@ def test_run_happy_path_sends_brief(tmp_path, monkeypatch):
         fetch_bhavcopy_fn=lambda d: _bhav(d, ["A"]),
         send_fn=lambda text: sent.setdefault("text", text),
         universe_df=universe, history_path=hist_path, dry_run=False,
+        positions_path=tmp_path / "positions.json",
     )
     assert out == "sent"
     assert "Market Brief" in sent["text"]

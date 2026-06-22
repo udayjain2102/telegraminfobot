@@ -11,10 +11,13 @@ testable without the network, and so a TV outage can be handled by the caller.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 import pandas as pd
 from .config import Config
 from .indicators import heikin_ashi
+from .chandelier import chandelier_exit_ha
+from .exits import evaluate_exit, ExitSignal
+from .positions import Position
 
 
 @dataclass
@@ -225,3 +228,49 @@ def scan_momentum(cfg: Config, query_fn=None, history_fn=None, now=None,
     scan.universe = universe
     scan.buys = [r for r in universe if r.buy]
     return scan
+
+
+def _ha_chandelier_red(symbol: str, history_fn, cfg: Config) -> bool:
+    """True if the HA Chandelier Exit is in a downtrend for ``symbol``."""
+    try:
+        h = history_fn(symbol)
+    except Exception:  # noqa: BLE001
+        return False
+    if h is None or len(h) < cfg.chandelier_length + 2:
+        return False
+    return chandelier_exit_ha(h, cfg.chandelier_length, cfg.chandelier_mult).direction == -1
+
+
+def _last_close(history_fn, symbol: str) -> float | None:
+    try:
+        h = history_fn(symbol)
+    except Exception:  # noqa: BLE001
+        return None
+    if h is None or len(h) == 0:
+        return None
+    return float(h["close"].iloc[-1])
+
+
+def evaluate_tv_exits(positions: dict[str, Position], scan: TvScan, cfg: Config,
+                      history_fn=None, today: date | None = None) -> list[ExitSignal]:
+    """Intraday exits for held positions: HA Supertrend red, stop hit, or
+    dropped out of the Top-15 turnover universe."""
+    history_fn = history_fn or _default_history_fn
+    today = today or datetime.now(timezone.utc).date()
+    in_universe = {u.symbol: u for u in scan.universe}
+
+    sells: list[ExitSignal] = []
+    for symbol, pos in positions.items():
+        row = in_universe.get(symbol)
+        if row is not None:
+            price = row.close
+            red = _ha_chandelier_red(symbol, history_fn, cfg)
+            dropped = False
+        else:
+            price = _last_close(history_fn, symbol) or pos.entry
+            red = False                 # already dropped from Top-15 → that trigger suffices
+            dropped = True
+        sig = evaluate_exit(pos, price, today, chandelier_red=red, dropped_top15=dropped)
+        if sig is not None:
+            sells.append(sig)
+    return sells

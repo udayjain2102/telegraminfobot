@@ -9,6 +9,7 @@ A push-only Telegram bot that sends a pre-market NSE brief each trading morning
 - 🔥 Unusual activity (relative-volume spikes)
 - 💰 Most-traded (turnover leaders, Top-15)
 - ⭐ Momentum BUY — Top-15 turnover × 20-day new high × Supertrend/Chandelier buy flip × close > POC × volume ≥ 1.5× avg
+- 🔴 SELL / EXIT — exits on held positions (HA Supertrend red, close<POC, stop hit, dropped from Top-15)
 - 🟢 Chandelier Exit Buy/Sell flips
 - 🎯 Approaching a key anchored-volume-profile level
 - 📈 Signal alerts (RSI, 52-week highs, 50/200 DMA crossovers)
@@ -40,11 +41,18 @@ python -m marketbot.main --source tradingview --dry-run   # live intraday Tradin
   realizing the strategy doc — NSE, MCap ₹10B–₹200B, **Heikin-Ashi new high**,
   Top-15 by turnover, **BUY** flag when TradingView relative volume ≥ 1.5×.
   Excludes stocks **listed within the last 12 months** (TV `first_bar_time`).
-  **Dedups within the day** — a BUY alerted in an earlier slot is suppressed later
-  (state in `data/tv_alerts.json`, committed by the workflow, auto-resets daily).
   Each BUY ships a **risk/reward matrix** (entry, 1×ATR stop capped at 7% risk,
   1R/2R/3R targets, 2%-risk position size per ₹1L) and a **time horizon** (3–8 weeks).
-  Writes no price history.
+
+### BUY → SELL position lifecycle
+Both scans share one **open-positions watchlist** (`data/positions.json`):
+- A **BUY** fires only when a name is flat → opens a position (entry, stop, date,
+  source). A held name is **not re-alerted** until it exits (this replaces the old
+  per-day dedup with stronger, lifecycle-based suppression).
+- A **SELL/EXIT** fires when a held position hits a trigger, then closes it:
+  HA Supertrend red flip · stop hit · dropped from Top-15 turnover · (EOD only)
+  close < POC. The doc's "red resistance" exit is chart-drawn and not coded.
+- SELLs report entry, exit price, % move, days held, and the trigger(s).
 
 ## Tests
 ```bash
@@ -56,8 +64,8 @@ pytest
   holidays via `data/nse_holidays.txt` (update yearly).
 - `tv-scan.yml` runs **hourly across 11:00–14:30 IST** weekdays (UTC crons 05:30,
   06:30, 07:30, 08:30, 09:00) — the live intraday TradingView momentum scan. Uses
-  the same Telegram secrets. Per-day dedup means a BUY is alerted once; commits
-  `data/tv_alerts.json` back so later slots see earlier alerts (needs `contents: write`).
+  the same Telegram secrets. Commits `data/positions.json` (the shared watchlist)
+  back so later slots suppress held names and fire exits (needs `contents: write`).
 - `refresh-universe.yml` rebuilds `data/universe.csv` weekly.
 
 ## Notes / limitations

@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
-from .indicators import atr
+from .indicators import atr, heikin_ashi
 
 
 @dataclass
@@ -13,6 +13,15 @@ class ChandelierResult:
     sell_flip: bool           # direction flipped 1 -> -1 on the latest bar
     last_buy_index: int | None
     last_sell_index: int | None
+
+
+def chandelier_exit_ha(df: pd.DataFrame, length: int = 22, mult: float = 3.0) -> ChandelierResult:
+    """Chandelier Exit computed on Heikin-Ashi candles (the strategy's candle basis)."""
+    ha = heikin_ashi(df)
+    ha_df = pd.DataFrame({
+        "high": ha["ha_high"], "low": ha["ha_low"], "close": ha["ha_close"],
+    }, index=df.index)
+    return chandelier_exit(ha_df, length, mult)
 
 
 def chandelier_exit(df: pd.DataFrame, length: int = 22, mult: float = 3.0) -> ChandelierResult:

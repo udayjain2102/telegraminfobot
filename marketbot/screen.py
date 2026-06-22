@@ -1,11 +1,14 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
+from datetime import date
 import pandas as pd
 from .config import Config
 from . import indicators as ind
-from .chandelier import chandelier_exit
+from .chandelier import chandelier_exit, chandelier_exit_ha
 from .volume_profile import volume_profile, near_levels, LevelHit
 from .history import history_for
+from .exits import evaluate_exit, ExitSignal
+from .positions import Position
 
 
 @dataclass
@@ -131,3 +134,34 @@ def build_report(history: pd.DataFrame, universe: pd.DataFrame, cfg: Config) -> 
             if ind.crossed_above(fast, slow):
                 report.ma_crossovers.append(r)
     return report
+
+
+def evaluate_eod_exits(positions: dict[str, Position], history: pd.DataFrame,
+                       report: Report, cfg: Config, today: date | None = None) -> list[ExitSignal]:
+    """EOD exits for held positions: HA Supertrend red, close<POC, stop hit, or
+    dropped out of the turnover leaders."""
+    today = today or (max(history["date"]) if not history.empty else date.today())
+    if hasattr(today, "date"):
+        today = today.date() if not isinstance(today, date) else today
+    leaders = {r.symbol for r in report.turnover_leaders}
+
+    sells: list[ExitSignal] = []
+    for symbol, pos in positions.items():
+        df = history_for(history, symbol)
+        if df.empty:
+            # no data → treat as dropped from the universe, exit at recorded entry
+            sig = evaluate_exit(pos, pos.entry, today, dropped_top15=True)
+            if sig is not None:
+                sells.append(sig)
+            continue
+        price = float(df["close"].iloc[-1])
+        red = (len(df) >= cfg.chandelier_length + 2
+               and chandelier_exit_ha(df, cfg.chandelier_length, cfg.chandelier_mult).direction == -1)
+        poc = volume_profile(df, cfg.avp_bins, cfg.avp_lookback_days, cfg.avp_value_area_pct).poc
+        below_poc = poc == poc and price < poc
+        dropped = symbol not in leaders
+        sig = evaluate_exit(pos, price, today, chandelier_red=red,
+                            below_poc=below_poc, dropped_top15=dropped)
+        if sig is not None:
+            sells.append(sig)
+    return sells

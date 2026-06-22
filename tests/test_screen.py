@@ -89,6 +89,22 @@ def test_momentum_buy_requires_top_turnover_membership():
     assert "MOM" not in [r.symbol for r in report.high_conviction]
 
 
+def test_eod_exit_fires_when_position_drops_from_turnover_leaders():
+    from datetime import date
+    from marketbot.screen import build_report, evaluate_eod_exits
+    from marketbot.positions import Position
+    cfg = Config()
+    hist = _history("A", [100] * 300, [500] * 300)
+    report = build_report(hist, _universe(["A"]), cfg)
+    # held name "GONE" has no history and isn't a turnover leader → exit
+    positions = {"GONE": Position("GONE", entry=100.0, stop=90.0,
+                                  entry_date="2026-01-01", source="eod")}
+    sells = evaluate_eod_exits(positions, hist, report, cfg, today=date(2026, 6, 22))
+    syms = {s.symbol for s in sells}
+    assert "GONE" in syms
+    assert any("left Top-15" in s.reasons for s in sells)
+
+
 def test_report_sections_exist():
     cfg = Config()
     hist = _history("A", [100] * 300, [500] * 300)

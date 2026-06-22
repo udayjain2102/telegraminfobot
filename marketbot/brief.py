@@ -29,17 +29,29 @@ def render_unavailable(d, reason: str) -> str:
     return f"📊 Market Brief — {_fmt_date(d)}\n—\nNo brief: {reason}."
 
 
+def _exit_line(s) -> str:
+    held = f"{s.days_held}d" if s.days_held else "today"
+    return (f" {s.symbol}  ₹{s.exit_price:,.2f}  ({s.pct_move:+.1f}% from ₹{s.entry:,.2f}, "
+            f"{held})  · {', '.join(s.reasons)}")
+
+
 def render_tv_scan(scan: TvScan, when: str = "11:00–14:30 IST",
-                   cfg: Config | None = None) -> str:
+                   cfg: Config | None = None, sells: list | None = None) -> str:
     """Render the live intraday TradingView momentum scan with per-BUY risk/reward."""
     cfg = cfg or Config()
+    sells = sells or []
     lines: list[str] = []
     lines.append(f"📡 TradingView Momentum Scan — {_fmt_date(scan.as_of)} · {when}")
     lines.append("─────────────────────────")
     lines.append("NSE · MCap ₹10B–₹200B · Heikin-Ashi new high · Top-15 turnover · ex-IPO<12m")
 
+    if sells:
+        lines.append("\n🔴 SELL / EXIT (held positions)")
+        lines += [_exit_line(s) for s in sells]
+
     if not scan.universe:
-        lines.append("\nNo stocks at a 1-month high in the universe right now.")
+        if not sells:
+            lines.append("\nNo stocks at a 1-month high in the universe right now.")
         return "\n".join(lines)
 
     if scan.buys:
@@ -76,8 +88,9 @@ def render_tv_scan(scan: TvScan, when: str = "11:00–14:30 IST",
     return "\n".join(lines)
 
 
-def render_brief(report: Report, overview: MarketOverview) -> str:
+def render_brief(report: Report, overview: MarketOverview, sells: list | None = None) -> str:
     lines: list[str] = []
+    sells = sells or []
     lines.append(f"📊 Market Brief — {_fmt_date(report.as_of)}")
     lines.append("─────────────────────────")
     lines.append(_index_line("NIFTY 50", overview.nifty))
@@ -99,6 +112,10 @@ def render_brief(report: Report, overview: MarketOverview) -> str:
         for r in report.high_conviction:
             lines.append(f" {r.symbol}  ₹{r.close:,.2f}  {r.chg_pct:+.1f}%  "
                          f"RV {r.rel_vol:.1f}x  · 20d high · BUY flip · >POC")
+
+    if sells:
+        lines.append("\n🔴 SELL / EXIT (held positions)")
+        lines += [_exit_line(s) for s in sells]
 
     if report.chandelier_buys or report.chandelier_sells:
         lines.append("\n🟢 Chandelier Exit — flipped today")

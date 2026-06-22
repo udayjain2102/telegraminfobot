@@ -197,7 +197,8 @@ def test_run_tv_scan_sends_and_reports_status(tmp_path):
         send_fn=lambda t: sent.setdefault("text", t),
         dry_run=False,
         scan_fn=lambda c: _fresh_scan(),
-        dedup_path=tmp_path / "tv_alerts.json",
+        positions_path=tmp_path / "positions.json",
+        history_fn=_no_history,
     )
     assert status == "sent"
     assert "TradingView Momentum Scan" in sent["text"]
@@ -210,31 +211,48 @@ def test_run_tv_scan_degrades_on_tv_failure(tmp_path):
     status = m.run_tv_scan(
         run_date=date(2026, 6, 22), cfg=Config(),
         send_fn=lambda t: sent.setdefault("text", t),
-        dry_run=False, scan_fn=boom, dedup_path=tmp_path / "tv_alerts.json",
+        dry_run=False, scan_fn=boom, positions_path=tmp_path / "positions.json",
     )
     assert status == "unavailable"
     assert "TradingView scan failed" in sent["text"]
 
 
-def test_run_tv_scan_suppresses_repeat_buys_same_day(tmp_path):
-    """Second run of the day must not re-alert a symbol already sent."""
-    p = tmp_path / "tv_alerts.json"
+def test_run_tv_scan_suppresses_buys_for_open_positions(tmp_path):
+    """A held name (open position) is not re-alerted as a BUY on later runs."""
+    p = tmp_path / "positions.json"
     sent = []
     common = dict(run_date=date(2026, 6, 22), cfg=Config(),
-                  scan_fn=lambda c: _fresh_scan("PARAS"), dedup_path=p)
+                  scan_fn=lambda c: _fresh_scan("PARAS"), positions_path=p,
+                  history_fn=_no_history)
 
     m.run_tv_scan(send_fn=lambda t: sent.append(t), dry_run=False, **common)
-    assert "PARAS" in sent[0]                       # first run alerts it
+    assert "PARAS" in sent[0]                        # first run alerts + opens it
+    assert "✅" in sent[0]
 
     m.run_tv_scan(send_fn=lambda t: sent.append(t), dry_run=False, **common)
-    assert "BUY — none" in sent[1]                  # no fresh BUY in the 2nd run
-    assert "✅" not in sent[1]                       # not re-flagged as a fresh buy
-    assert "·sent" in sent[1]                        # shown as already-alerted instead
+    assert "BUY — none" in sent[1]                   # held → no fresh BUY
+    assert "✅" not in sent[1]                        # shown as already-held (·sent), not flagged
 
 
 def test_run_tv_scan_dry_run_does_not_persist(tmp_path):
-    p = tmp_path / "tv_alerts.json"
+    p = tmp_path / "positions.json"
     m.run_tv_scan(run_date=date(2026, 6, 22), cfg=Config(),
                   send_fn=lambda t: None, dry_run=True,
-                  scan_fn=lambda c: _fresh_scan("PARAS"), dedup_path=p)
-    assert not p.exists()                           # dry run writes no state
+                  scan_fn=lambda c: _fresh_scan("PARAS"), positions_path=p,
+                  history_fn=_no_history)
+    assert not p.exists()                            # dry run writes no state
+
+
+def test_run_tv_scan_fires_sell_when_position_drops_out(tmp_path):
+    """A held name absent from the Top-15 universe triggers a SELL and closes."""
+    from marketbot.positions import Position, save_positions, load_positions
+    p = tmp_path / "positions.json"
+    save_positions({"GONE": Position("GONE", entry=100.0, stop=90.0,
+                                      entry_date="2026-06-15", source="tv")}, p)
+    sent = []
+    m.run_tv_scan(run_date=date(2026, 6, 22), cfg=Config(),
+                  send_fn=lambda t: sent.append(t), dry_run=False,
+                  scan_fn=lambda c: _fresh_scan("PARAS"),   # universe = PARAS only
+                  positions_path=p, history_fn=_no_history)
+    assert "SELL" in sent[0] and "GONE" in sent[0] and "left Top-15" in sent[0]
+    assert "GONE" not in load_positions(p)            # position closed

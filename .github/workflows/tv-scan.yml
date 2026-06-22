@@ -15,8 +15,8 @@ on:
         type: boolean
         default: false
 
-# Writes the per-day dedup state (data/tv_alerts.json) back to the repo so later
-# slots in the same day suppress already-alerted BUYs.
+# Writes the open-positions watchlist (data/positions.json) back to the repo so
+# later slots suppress BUYs on held names and can fire exits against them.
 permissions:
   contents: write
 
@@ -43,12 +43,12 @@ jobs:
           else
             python -m marketbot.main --source tradingview
           fi
-      - name: Commit dedup state
+      - name: Commit positions watchlist
         if: ${{ inputs.dry_run != 'true' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/tv_alerts.json
-          git commit -m "data: tv-scan dedup state [skip ci]" || echo "no changes"
+          git add data/positions.json
+          git commit -m "data: tv-scan positions [skip ci]" || echo "no changes"
           git pull --rebase --autostash || true
           git push || echo "nothing to push"
