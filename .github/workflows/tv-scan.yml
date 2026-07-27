@@ -1,0 +1,54 @@
+name: tv-scan
+on:
+  schedule:
+    # Intraday momentum scan across the trading window, 11:00–14:30 IST (Mon–Fri).
+    # GitHub Actions cron is UTC; IST = UTC+5:30.
+    - cron: "30 5 * * 1-5"   # 11:00 IST
+    - cron: "30 6 * * 1-5"   # 12:00 IST
+    - cron: "30 7 * * 1-5"   # 13:00 IST
+    - cron: "30 8 * * 1-5"   # 14:00 IST
+    - cron: "0 9 * * 1-5"    # 14:30 IST
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print instead of sending"
+        type: boolean
+        default: false
+
+# Writes the open-positions watchlist (data/positions.json) back to the repo so
+# later slots suppress BUYs on held names and can fire exits against them.
+permissions:
+  contents: write
+
+concurrency:
+  group: tv-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Run TradingView momentum scan
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python -m marketbot.main --source tradingview --dry-run
+          else
+            python -m marketbot.main --source tradingview
+          fi
+      - name: Commit positions watchlist
+        if: ${{ inputs.dry_run != 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/positions.json
+          git commit -m "data: tv-scan positions [skip ci]" || echo "no changes"
+          git pull --rebase --autostash || true
+          git push || echo "nothing to push"

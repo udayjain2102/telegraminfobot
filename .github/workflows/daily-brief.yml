@@ -35,10 +35,11 @@ jobs:
           else
             python -m marketbot.main
           fi
-      - name: Commit updated history
+      - name: Commit updated history + positions
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/history.parquet
-          git commit -m "data: update rolling history [skip ci]" || echo "no changes"
+          git add data/history.parquet data/positions.json
+          git commit -m "data: update rolling history + positions [skip ci]" || echo "no changes"
+          git pull --rebase --autostash || true
           git push || echo "nothing to push"

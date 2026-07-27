@@ -22,7 +22,7 @@ def test_render_includes_all_section_headers():
     ov = MarketOverview(nifty=(24310.0, 0.8), sensex=(79850.0, 0.7), top_sectors=[("IT", 1.9)])
     text = render_brief(report, ov)
     for marker in ["Market Brief", "Unusual activity", "Most-traded",
-                   "High-conviction", "Chandelier", "12 Jun"]:
+                   "Momentum BUY", "Chandelier", "12 Jun"]:
         assert marker in text
 
 

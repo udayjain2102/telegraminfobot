@@ -1,11 +1,14 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
+from datetime import date
 import pandas as pd
 from .config import Config
 from . import indicators as ind
-from .chandelier import chandelier_exit
+from .chandelier import chandelier_exit, chandelier_exit_ha
 from .volume_profile import volume_profile, near_levels, LevelHit
 from .history import history_for
+from .exits import evaluate_exit, ExitSignal
+from .positions import Position
 
 
 @dataclass
@@ -20,6 +23,8 @@ class StockRow:
     chandelier_dir: int
     buy_flip: bool
     sell_flip: bool
+    new_high_20d: bool = False
+    above_poc: bool = False
     level_hits: list[LevelHit] = field(default_factory=list)
     rsi: float = float("nan")
 
@@ -56,10 +61,16 @@ def _evaluate_symbol(df: pd.DataFrame, name: str, sector: str, cfg: Config) -> S
     hits = near_levels(close, {"POC": prof.poc, "VAH": prof.vah, "VAL": prof.val},
                        cfg.near_level_band_pct)
 
+    # 1-month new high: close >= highest close of last `new_high_lookback_days` sessions
+    new_high_window = float(df["close"].rolling(cfg.new_high_lookback_days).max().iloc[-1])
+    new_high = close >= new_high_window if new_high_window == new_high_window else False
+    above_poc = close > prof.poc if prof.poc == prof.poc else False
+
     return StockRow(
         symbol=df["symbol"].iloc[-1], name=name, close=close, chg_pct=chg,
         rel_vol=rel_vol if rel_vol == rel_vol else 0.0, turnover=turn, sector=sector,
         chandelier_dir=ce.direction, buy_flip=ce.buy_flip, sell_flip=ce.sell_flip,
+        new_high_20d=bool(new_high), above_poc=bool(above_poc),
         level_hits=hits, rsi=rsi_val,
     )
 
@@ -95,7 +106,18 @@ def build_report(history: pd.DataFrame, universe: pd.DataFrame, cfg: Config) -> 
         [r for r in rows if r.level_hits],
         key=lambda r: abs(r.level_hits[0].distance_pct))[: cfg.top_n_levels]
 
-    report.high_conviction = [r for r in rows if r.buy_flip and r.level_hits]
+    # Momentum BUY (spec) — ALL conditions must hold:
+    #  [1] in Top-15 turnover set  [2] 1-month new high  [3] Chandelier/Supertrend buy flip
+    #  [4] close above volume-profile POC  [5] signal-day volume >= buy_volume_mult x avg
+    turnover_set = {r.symbol for r in report.turnover_leaders}
+    report.high_conviction = [
+        r for r in rows
+        if r.symbol in turnover_set
+        and r.new_high_20d
+        and r.buy_flip
+        and r.above_poc
+        and r.rel_vol >= cfg.buy_volume_mult
+    ]
 
     report.rsi_oversold = [r for r in rows if r.rsi <= cfg.rsi_oversold]
     report.rsi_overbought = [r for r in rows if r.rsi >= cfg.rsi_overbought]
@@ -112,3 +134,34 @@ def build_report(history: pd.DataFrame, universe: pd.DataFrame, cfg: Config) -> 
             if ind.crossed_above(fast, slow):
                 report.ma_crossovers.append(r)
     return report
+
+
+def evaluate_eod_exits(positions: dict[str, Position], history: pd.DataFrame,
+                       report: Report, cfg: Config, today: date | None = None) -> list[ExitSignal]:
+    """EOD exits for held positions: HA Supertrend red, close<POC, stop hit, or
+    dropped out of the turnover leaders."""
+    today = today or (max(history["date"]) if not history.empty else date.today())
+    if hasattr(today, "date"):
+        today = today.date() if not isinstance(today, date) else today
+    leaders = {r.symbol for r in report.turnover_leaders}
+
+    sells: list[ExitSignal] = []
+    for symbol, pos in positions.items():
+        df = history_for(history, symbol)
+        if df.empty:
+            # no data → treat as dropped from the universe, exit at recorded entry
+            sig = evaluate_exit(pos, pos.entry, today, dropped_top15=True)
+            if sig is not None:
+                sells.append(sig)
+            continue
+        price = float(df["close"].iloc[-1])
+        red = (len(df) >= cfg.chandelier_length + 2
+               and chandelier_exit_ha(df, cfg.chandelier_length, cfg.chandelier_mult).direction == -1)
+        poc = volume_profile(df, cfg.avp_bins, cfg.avp_lookback_days, cfg.avp_value_area_pct).poc
+        below_poc = poc == poc and price < poc
+        dropped = symbol not in leaders
+        sig = evaluate_exit(pos, price, today, chandelier_red=red,
+                            below_poc=below_poc, dropped_top15=dropped)
+        if sig is not None:
+            sells.append(sig)
+    return sells

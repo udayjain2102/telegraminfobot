@@ -16,6 +16,28 @@ def _df(closes, highs=None, lows=None, vols=None):
     })
 
 
+def test_heikin_ashi_close_is_ohlc_average():
+    df = pd.DataFrame({"open": [10.0], "high": [14.0], "low": [8.0], "close": [12.0]})
+    ha = ind.heikin_ashi(df)
+    assert ha["ha_close"].iloc[0] == (10 + 14 + 8 + 12) / 4   # 11.0
+    # first HA open seeds from (open+close)/2
+    assert ha["ha_open"].iloc[0] == (10 + 12) / 2             # 11.0
+
+
+def test_heikin_ashi_open_is_recursive_average():
+    df = pd.DataFrame({
+        "open": [10.0, 11.0], "high": [14.0, 15.0],
+        "low": [8.0, 9.0], "close": [12.0, 13.0],
+    })
+    ha = ind.heikin_ashi(df)
+    ha_open0 = (10 + 12) / 2          # 11.0
+    ha_close0 = (10 + 14 + 8 + 12) / 4  # 11.0
+    assert ha["ha_open"].iloc[1] == (ha_open0 + ha_close0) / 2   # recursive
+    # ha_high/low envelope the candle body and the real high/low
+    assert ha["ha_high"].iloc[1] == max(15.0, ha["ha_open"].iloc[1], ha["ha_close"].iloc[1])
+    assert ha["ha_low"].iloc[1] == min(9.0, ha["ha_open"].iloc[1], ha["ha_close"].iloc[1])
+
+
 def test_rsi_all_gains_is_100():
     df = _df(list(range(1, 40)))
     assert ind.rsi(df["close"], 14).iloc[-1] == pytest.approx(100.0, abs=1e-6)

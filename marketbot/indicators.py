@@ -49,6 +49,34 @@ def sma(series: pd.Series, length: int) -> pd.Series:
     return series.rolling(length).mean()
 
 
+def heikin_ashi(df: pd.DataFrame) -> pd.DataFrame:
+    """Heikin-Ashi candles from regular OHLC.
+
+    ha_close = (O+H+L+C)/4  (non-recursive)
+    ha_open  = (prev ha_open + prev ha_close)/2, seeded with (O0+C0)/2
+    ha_high/low envelope the real high/low and the HA body.
+    """
+    o = df["open"].to_numpy(dtype=float)
+    h = df["high"].to_numpy(dtype=float)
+    low = df["low"].to_numpy(dtype=float)
+    c = df["close"].to_numpy(dtype=float)
+    n = len(df)
+
+    ha_close = (o + h + low + c) / 4.0
+    ha_open = np.empty(n)
+    if n:
+        ha_open[0] = (o[0] + c[0]) / 2.0
+        for i in range(1, n):
+            ha_open[i] = (ha_open[i - 1] + ha_close[i - 1]) / 2.0
+    ha_high = np.maximum.reduce([h, ha_open, ha_close]) if n else h
+    ha_low = np.minimum.reduce([low, ha_open, ha_close]) if n else low
+
+    return pd.DataFrame(
+        {"ha_open": ha_open, "ha_high": ha_high, "ha_low": ha_low, "ha_close": ha_close},
+        index=df.index,
+    )
+
+
 def crossed_above(fast: pd.Series, slow: pd.Series) -> bool:
     if len(fast) < 2:
         return False
