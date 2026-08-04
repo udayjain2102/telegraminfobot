@@ -1,7 +1,13 @@
 {
- "MANYAVAR": {
-  "entry": 469.2,
-  "stop": 452.35777872315197,
+ "MOREPENLAB": {
+  "entry": 69.18,
+  "stop": 65.8093634405809,
+  "entry_date": "2026-08-04",
+  "source": "tv"
+ },
+ "RBA": {
+  "entry": 84.91,
+  "stop": 81.58396040949458,
   "entry_date": "2026-08-04",
   "source": "tv"
  }
