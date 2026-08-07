@@ -1,19 +1,7 @@
 {
- "MANORAMA": {
-  "entry": 1698.0,
-  "stop": 1648.5580218311536,
-  "entry_date": "2026-08-07",
-  "source": "tv"
- },
  "SBCL": {
   "entry": 920.9,
   "stop": 882.7143458196945,
-  "entry_date": "2026-08-07",
-  "source": "tv"
- },
- "TRAVELFOOD": {
-  "entry": 1470.9,
-  "stop": 1421.112091309979,
   "entry_date": "2026-08-07",
   "source": "tv"
  }
