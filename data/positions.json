@@ -1,8 +1,14 @@
 {
- "SBCL": {
-  "entry": 920.9,
-  "stop": 882.7143458196945,
-  "entry_date": "2026-08-07",
+ "AARTIPHARM": {
+  "entry": 823.0,
+  "stop": 792.8925272451773,
+  "entry_date": "2026-08-10",
+  "source": "tv"
+ },
+ "BRIGADE": {
+  "entry": 613.55,
+  "stop": 594.7142497936047,
+  "entry_date": "2026-08-10",
   "source": "tv"
  }
 }
