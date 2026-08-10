@@ -5,9 +5,15 @@
   "entry_date": "2026-08-10",
   "source": "tv"
  },
- "AZAD": {
-  "entry": 2551.9,
-  "stop": 2448.841908638351,
+ "SBCL": {
+  "entry": 1105.05,
+  "stop": 1056.4383211182876,
+  "entry_date": "2026-08-10",
+  "source": "tv"
+ },
+ "UNIVCABLES": {
+  "entry": 1693.4,
+  "stop": 1605.7869972684412,
   "entry_date": "2026-08-10",
   "source": "tv"
  }
