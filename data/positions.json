@@ -1,20 +1,14 @@
 {
- "AARTIPHARM": {
-  "entry": 823.0,
-  "stop": 792.8925272451773,
-  "entry_date": "2026-08-10",
+ "INDSWFTLAB": {
+  "entry": 284.68,
+  "stop": 271.234368686397,
+  "entry_date": "2026-08-11",
   "source": "tv"
  },
- "SBCL": {
-  "entry": 1105.05,
-  "stop": 1056.4383211182876,
-  "entry_date": "2026-08-10",
-  "source": "tv"
- },
- "UNIVCABLES": {
-  "entry": 1693.4,
-  "stop": 1605.7869972684412,
-  "entry_date": "2026-08-10",
+ "STYLEBAAZA": {
+  "entry": 353.45,
+  "stop": 338.9816195735203,
+  "entry_date": "2026-08-11",
   "source": "tv"
  }
 }
