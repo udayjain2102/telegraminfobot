@@ -1,7 +1,19 @@
 {
+ "AARTIIND": {
+  "entry": 531.6,
+  "stop": 515.6734359418713,
+  "entry_date": "2026-08-12",
+  "source": "tv"
+ },
  "ELLEN": {
   "entry": 323.8,
   "stop": 308.46244801351844,
+  "entry_date": "2026-08-12",
+  "source": "tv"
+ },
+ "TCPLPACK": {
+  "entry": 4410.9,
+  "stop": 4200.313582606451,
   "entry_date": "2026-08-12",
   "source": "tv"
  }
