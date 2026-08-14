@@ -1,8 +1,14 @@
 {
- "MUNJALAU": {
-  "entry": 119.79,
-  "stop": 115.10026704858336,
-  "entry_date": "2026-08-13",
+ "GALAXYSURF": {
+  "entry": 2508.4,
+  "stop": 2418.9285655230105,
+  "entry_date": "2026-08-14",
+  "source": "tv"
+ },
+ "KRN": {
+  "entry": 1468.3,
+  "stop": 1419.0095783283575,
+  "entry_date": "2026-08-14",
   "source": "tv"
  }
 }
