@@ -1,14 +1,8 @@
 {
- "GALAXYSURF": {
-  "entry": 2508.4,
-  "stop": 2418.9285655230105,
-  "entry_date": "2026-08-14",
-  "source": "tv"
- },
- "STYLEBAAZA": {
-  "entry": 365.25,
-  "stop": 349.5256443888572,
-  "entry_date": "2026-08-14",
+ "KRN": {
+  "entry": 1541.7,
+  "stop": 1490.6874655906176,
+  "entry_date": "2026-08-17",
   "source": "tv"
  }
 }
