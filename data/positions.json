@@ -1,4 +1,10 @@
 {
+ "AEROFLEX": {
+  "entry": 503.8,
+  "stop": 481.00066650666287,
+  "entry_date": "2026-08-21",
+  "source": "tv"
+ },
  "QUADFUTURE": {
   "entry": 405.35,
   "stop": 383.89045071489164,
