@@ -1,14 +1,14 @@
 {
- "CARTRADE": {
-  "entry": 3099.7,
-  "stop": 2988.523792474091,
-  "entry_date": "2026-08-21",
-  "source": "tv"
- },
  "SEITINVIT": {
   "entry": 124.0,
   "stop": 121.10040641220279,
   "entry_date": "2026-08-20",
+  "source": "tv"
+ },
+ "SHANTIGEAR": {
+  "entry": 464.25,
+  "stop": 448.4825017192432,
+  "entry_date": "2026-08-21",
   "source": "tv"
  }
 }
