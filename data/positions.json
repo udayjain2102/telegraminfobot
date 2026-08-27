@@ -1,8 +1,14 @@
 {
- "SETL": {
-  "entry": 330.45,
-  "stop": 316.27893148242816,
-  "entry_date": "2026-08-26",
+ "IMAGICAA": {
+  "entry": 60.21,
+  "stop": 57.514191532992925,
+  "entry_date": "2026-08-27",
+  "source": "tv"
+ },
+ "PVP": {
+  "entry": 62.12,
+  "stop": 58.9075850907709,
+  "entry_date": "2026-08-27",
   "source": "tv"
  },
  "SIGMAADV": {
