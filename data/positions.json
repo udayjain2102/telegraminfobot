@@ -1,20 +1,14 @@
 {
- "IMAGICAA": {
-  "entry": 60.21,
-  "stop": 57.514191532992925,
-  "entry_date": "2026-08-27",
+ "PRECWIRE": {
+  "entry": 507.35,
+  "stop": 482.5265580104089,
+  "entry_date": "2026-08-28",
   "source": "tv"
  },
- "PVP": {
-  "entry": 62.12,
-  "stop": 58.9075850907709,
-  "entry_date": "2026-08-27",
-  "source": "tv"
- },
- "SIGMAADV": {
-  "entry": 727.3,
-  "stop": 691.8670243602382,
-  "entry_date": "2026-08-26",
+ "QPOWER": {
+  "entry": 1431.2,
+  "stop": 1374.312422625039,
+  "entry_date": "2026-08-28",
   "source": "tv"
  }
 }
