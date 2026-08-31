@@ -1,14 +1,14 @@
 {
- "PRECWIRE": {
-  "entry": 507.35,
-  "stop": 482.5265580104089,
-  "entry_date": "2026-08-28",
+ "BODALCHEM": {
+  "entry": 118.89,
+  "stop": 113.7441325696925,
+  "entry_date": "2026-08-31",
   "source": "tv"
  },
- "QPOWER": {
-  "entry": 1431.2,
-  "stop": 1374.312422625039,
-  "entry_date": "2026-08-28",
+ "SHILPAMED": {
+  "entry": 949.3,
+  "stop": 915.2403077283159,
+  "entry_date": "2026-08-31",
   "source": "tv"
  }
 }
