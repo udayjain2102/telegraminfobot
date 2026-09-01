@@ -1,14 +1,8 @@
 {
- "BODALCHEM": {
-  "entry": 118.89,
-  "stop": 113.7441325696925,
-  "entry_date": "2026-08-31",
-  "source": "tv"
- },
- "SHILPAMED": {
-  "entry": 949.3,
-  "stop": 915.2403077283159,
-  "entry_date": "2026-08-31",
+ "TBZ": {
+  "entry": 366.8,
+  "stop": 346.8738756582891,
+  "entry_date": "2026-09-01",
   "source": "tv"
  }
 }
