@@ -1,20 +1,14 @@
 {
- "ASTEC": {
-  "entry": 662.8,
-  "stop": 632.2060140293544,
-  "entry_date": "2026-09-08",
+ "ELLEN": {
+  "entry": 355.05,
+  "stop": 339.4022682753893,
+  "entry_date": "2026-09-09",
   "source": "tv"
  },
- "GENESYS": {
-  "entry": 288.19,
-  "stop": 270.9139391560391,
-  "entry_date": "2026-09-08",
-  "source": "tv"
- },
- "WHEELS": {
-  "entry": 2106.4,
-  "stop": 2015.3796588162836,
-  "entry_date": "2026-09-08",
+ "NOVARTIND": {
+  "entry": 2186.4,
+  "stop": 2087.642073043858,
+  "entry_date": "2026-09-09",
   "source": "tv"
  }
 }
