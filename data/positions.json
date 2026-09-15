@@ -1,8 +1,14 @@
 {
- "SETL": {
-  "entry": 468.15,
-  "stop": 449.3319160208071,
-  "entry_date": "2026-09-11",
+ "EMUDHRA": {
+  "entry": 592.85,
+  "stop": 568.0325594739203,
+  "entry_date": "2026-09-15",
+  "source": "tv"
+ },
+ "TATACHEM": {
+  "entry": 734.9,
+  "stop": 712.0349873487451,
+  "entry_date": "2026-09-15",
   "source": "tv"
  }
 }
